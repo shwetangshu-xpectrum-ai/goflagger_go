@@ -1,0 +1,14 @@
+beta-feature:
+  variations:
+    enabled: true
+    disabled: false
+  targeting: []
+  defaultRule:
+    variation: enabled
+experimental-feature:
+  variations:
+    enabled: true
+    disabled: false
+  targeting: []
+  defaultRule:
+    variation: disabled
