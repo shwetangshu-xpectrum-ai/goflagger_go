@@ -1,0 +1,233 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f2f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    color: #1a237e;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.control-panel {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.toggle-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.toggle-btn {
+    padding: 12px 24px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.toggle-btn.enable {
+    background-color: #4caf50;
+    color: white;
+}
+
+.toggle-btn.disable {
+    background-color: #f44336;
+    color: white;
+}
+
+.toggle-btn.reset {
+    background-color: #2196f3;
+    color: white;
+}
+
+.toggle-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.feature-status {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.status-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    margin: 15px 0;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.status-indicator.active {
+    background-color: #e8f5e9;
+    border-left: 6px solid #4caf50;
+}
+
+.status-indicator.inactive {
+    background-color: #ffebee;
+    border-left: 6px solid #f44336;
+}
+
+.status-label {
+    font-weight: bold;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.status-value {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.active .status-value {
+    background-color: #4caf50;
+    color: white;
+}
+
+.inactive .status-value {
+    background-color: #f44336;
+    color: white;
+}
+
+.feature {
+    background: white;
+    border-radius: 10px;
+    padding: 25px;
+    margin: 25px 0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.feature:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+.beta {
+    border-left: 6px solid #2196f3;
+}
+
+.experimental {
+    border-left: 6px solid #ff9800;
+}
+
+.feature h2 {
+    color: #1a237e;
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.8em;
+}
+
+.feature-content {
+    margin-top: 20px;
+}
+
+.feature-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 15px;
+    border: 1px solid #e0e0e0;
+}
+
+.feature-card h3 {
+    color: #2196f3;
+    margin-top: 0;
+    font-size: 1.4em;
+}
+
+.feature-highlight {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.highlight-text {
+    background: linear-gradient(45deg, #2196f3, #4caf50);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.current-state {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-top: 30px;
+    text-align: center;
+}
+
+.current-state h3 {
+    color: #1a237e;
+    margin-top: 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.feature {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.nav-links {
+    margin: 20px 0;
+}
+
+.nav-links a {
+    color: #2196F3;
+    text-decoration: none;
+    margin-right: 15px;
+    font-weight: bold;
+}
+
+.nav-links a:hover {
+    text-decoration: underline;
+}
+
+.admin-link {
+    background: #2196F3;
+    color: white !important;
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.admin-link:hover {
+    background: #1976D2;
+    text-decoration: none !important;
+} 

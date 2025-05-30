@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Feature Flag Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .admin-form {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .feature-control {
+            margin: 15px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .feature-control h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.5em;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #444;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            background-color: white;
+        }
+        .targeting-rules {
+            margin-top: 15px;
+            background: #fafafa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .rule {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .rule input {
+            flex: 2;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        .rule select {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            background-color: white;
+        }
+        .rule .remove-rule {
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 1.2em;
+            line-height: 1;
+        }
+        .rule .remove-rule:hover {
+            background: #cc0000;
+        }
+        .add-rule-btn {
+            background: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .add-rule-btn:hover {
+            background: #1976D2;
+        }
+        .submit-btn {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-top: 20px;
+            width: 100%;
+        }
+        .submit-btn:hover {
+            background: #45a049;
+        }
+        .nav-links {
+            margin: 20px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-links a {
+            color: #2196F3;
+            text-decoration: none;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .feature-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        .feature-status.enabled {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .feature-status.disabled {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Feature Flag Admin Panel</h1>
+        
+        <div class="nav-links">
+            <a href="/dashboard">← Back to Dashboard</a>
+            <span>Manage your feature flags and targeting rules</span>
+        </div>
+
+        <form action="/admin/update" method="POST" class="admin-form">
+            {{range .Features}}
+            <div class="feature-control">
+                <h3>
+                    {{.Name}}
+                    <span class="feature-status {{.DefaultVariation}}">
+                        {{.DefaultVariation}}
+                    </span>
+                </h3>
+                <div class="form-group">
+                    <label>Default Variation:</label>
+                    <select name="{{.Name}}_default" onchange="updateFeatureStatus(this)">
+                        <option value="enabled" {{if eq .DefaultVariation "enabled"}}selected{{end}}>Enabled</option>
+                        <option value="disabled" {{if eq .DefaultVariation "disabled"}}selected{{end}}>Disabled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Targeting Rules:</label>
+                    <div class="targeting-rules">
+                        {{range .TargetingRules}}
+                        <div class="rule">
+                            <input type="text" name="{{$.Name}}_query[]" value="{{.Query}}" placeholder="key == 'value'">
+                            <select name="{{$.Name}}_variation[]">
+                                <option value="enabled" {{if eq .Variation "enabled"}}selected{{end}}>Enabled</option>
+                                <option value="disabled" {{if eq .Variation "disabled"}}selected{{end}}>Disabled</option>
+                            </select>
+                            <button type="button" class="remove-rule" onclick="removeRule(this)">×</button>
+                        </div>
+                        {{end}}
+                        <button type="button" class="add-rule-btn" onclick="addRule(this)">
+                            <span>+</span> Add Rule
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+            <button type="submit" class="submit-btn">Save Changes</button>
+        </form>
+    </div>
+
+    <script>
+        function addRule(button) {
+            const rulesContainer = button.parentElement;
+            const ruleDiv = document.createElement('div');
+            ruleDiv.className = 'rule';
+            
+            const featureName = button.closest('.feature-control').querySelector('h3').textContent.trim();
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = featureName + '_query[]';
+            input.placeholder = "key == 'value'";
+            
+            const select = document.createElement('select');
+            select.name = featureName + '_variation[]';
+            
+            const enabledOption = document.createElement('option');
+            enabledOption.value = 'enabled';
+            enabledOption.textContent = 'Enabled';
+            
+            const disabledOption = document.createElement('option');
+            disabledOption.value = 'disabled';
+            disabledOption.textContent = 'Disabled';
+            
+            select.appendChild(enabledOption);
+            select.appendChild(disabledOption);
+            
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'remove-rule';
+            removeButton.textContent = '×';
+            removeButton.onclick = function() { removeRule(this); };
+            
+            ruleDiv.appendChild(input);
+            ruleDiv.appendChild(select);
+            ruleDiv.appendChild(removeButton);
+            
+            rulesContainer.insertBefore(ruleDiv, button);
+        }
+
+        function removeRule(button) {
+            const ruleDiv = button.parentElement;
+            ruleDiv.remove();
+        }
+
+        function updateFeatureStatus(select) {
+            const featureControl = select.closest('.feature-control');
+            const statusSpan = featureControl.querySelector('.feature-status');
+            statusSpan.textContent = select.value;
+            statusSpan.className = 'feature-status ' + select.value;
+        }
+    </script>
+</body>
+</html> 
