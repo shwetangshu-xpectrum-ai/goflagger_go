@@ -1,4 +1,4 @@
-````markdown
+
 # GoFeatureFlag via Docker: Production Deployment and SDK Behavior
 
 This document explains how to use GoFeatureFlag in a Dockerized production environment, including how the relay proxy and Python client SDK interact.
