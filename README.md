@@ -1,364 +1,148 @@
-# Flask & GoFeatureFlag Demo
+````markdown
+# GoFeatureFlag via Docker: Production Deployment and SDK Behavior
 
-This repository contains a Flask-based application showcasing feature flag integration using **GoFeatureFlag** relay-proxy, along with instructions to integrate the same feature flags into a React frontend. The demo includes:
+This document explains how to use GoFeatureFlag in a Dockerized production environment, including how the relay proxy and Python client SDK interact.
 
-* **Dark/Light Mode** (`dark_mode`)
-* **Promo Banner** (`promo_banner`)
-* **Features Grid** (`new_button`, `analytics_section`)
-* **Analytics Cards** (`analytics_section`)
-* **Chatbot Panel** (`chatbot_enabled`)
-* **Footer** (`footer_enabled`)
+## Deployment Overview: Application and Relay Proxy
 
-## Table of Contents
+In a production environment, two services must run concurrently:
 
-1. [Repository Structure](#repository-structure)
-2. [Prerequisites](#prerequisites)
-3. [Getting Started](#getting-started)
+1. **Relay Proxy Container (`go-feature-flag`)**
 
-   * [Clone & Setup](#clone--setup)
-   * [Environment Variables](#environment-variables)
-   * [Flags Configuration](#flags-configuration)
-   * [Relay-Proxy Configuration](#relay-proxy-configuration)
-   * [Docker & Docker Compose](#docker--docker-compose)
-   * [Run the Demo](#run-the-demo)
-4. [Application Overview](#application-overview)
-5. [Integrate Flags into React](#integrate-flags-into-react)
+   - This service is responsible for reading the `flags.yaml` file (or any supported source like S3, GitHub, etc.).
+   - It acts as a standalone HTTP microservice, exposing a `/client/api/v1` endpoint.
+   - The relay keeps an in-memory cache of all flags and updates it by polling the source file on a configurable interval.
+   - All feature evaluation logic happens here — the main application only fetches evaluated values.
 
-   * [Install SDK](#install-sdk)
-   * [Initialize Client](#initialize-client)
-   * [Use Flags in Components](#use-flags-in-components)
-   * [Polling & Cache Behavior](#polling--cache-behavior)
-6. [Advanced Topics](#advanced-topics)
+2. **Application Container (e.g., Flask App)**
 
-   * [Production Deployment](#production-deployment)
-   * [Custom Retriever (HTTP, GitHub, etc.)](#custom-retriever-http-github-etc)
-7. [Cleaning Up](#cleaning-up)
-8. [License](#license)
+   - This is the main service containing the business logic.
+   - It does **not** parse or read the flag file directly.
+   - Instead, it makes HTTP requests to the relay proxy’s client API to fetch feature flags.
+   - It initializes a GoFeatureFlag Python SDK that interacts with the relay, caching flag values locally.
+
+Both containers must be running, either side by side or with network access between them.
 
 ---
 
-## Repository Structure
+## Client-Relay Communication Pattern
+
+The application interacts with the relay proxy to get the latest feature flag values. The process is as follows:
+
+1. **Startup Phase**
+
+   - The application creates an instance of the GoFeatureFlag Python client, setting the `base_url` to the relay proxy’s client API (e.g., `http://gff-server:1031/client/api/v1`).
+   - On initialization, the SDK fetches all flags from the relay (`GET /client/api/v1/flags`) and caches them locally.
+
+2. **Runtime Feature Checks**
+
+   - Each time the application checks a flag using `client.bool_variation(...)`, the value is returned from the local in-memory cache.
+   - No network request is made during this read.
+
+3. **Automatic Refresh**
+
+   - The SDK includes a background thread that periodically polls the relay to refresh its local flag cache.
+   - This ensures that any updates made to the `flags.yaml` file (or remote source) are reflected automatically in the application.
+
+---
+
+## Python SDK Caching and Refresh Logic
+
+The Python SDK is optimized for performance by avoiding repeated network calls during runtime. Here's how it works:
+
+1. **Installation**
+
+   ```bash
+   pip install go-feature-flag
+````
+
+2. **Initialization Example**
+
+   ```python
+   import os
+   from go_feature_flag.client import GoFeatureFlagClient
+
+   BASE_URL = os.getenv("GFF_URL", "http://gff-server:1031/client/api/v1")
+   refresh_interval = 15  # in seconds
+
+   client = GoFeatureFlagClient(base_url=BASE_URL, refresh_interval_sec=refresh_interval)
+   client.wait_for_first_fetch()
+   ```
+
+   * `base_url` points to the relay proxy’s endpoint.
+   * `refresh_interval_sec` sets how often the SDK will poll the relay for updates.
+
+3. **Using Feature Flags**
+
+   ```python
+   is_dark_mode = client.bool_variation("dark_mode", default=False)
+
+   if is_dark_mode:
+       # Apply dark mode settings
+       ...
+   ```
+
+   * The value is retrieved from the local cache.
+   * If the cache hasn’t been populated yet, it blocks until the first fetch is complete.
+
+4. **Background Thread Behavior**
+
+   * A background process inside the SDK polls the relay every `refresh_interval_sec` seconds.
+   * When the `flags.yaml` file is updated, the relay detects changes based on its own polling interval (configured in `goff-proxy.yaml`).
+   * The application picks up those changes during its next polling cycle—no need to restart the app.
+
+5. **Cleanup (Optional)**
+
+   During shutdown, it’s possible to gracefully terminate the background thread:
+
+   ```python
+   client._stop_background_thread()
+   ```
+
+---
+
+## Folder Structure Example
 
 ```
 flask-flag-demo/
-├── .env                   # Environment variables (SECRET_KEY)
-├── app.py                 # Flask application code
-├── requirements.txt       # Python dependencies
-├── Dockerfile             # Dockerfile for Flask app
-├── docker-compose.yml     # Docker Compose for Flask + relay-proxy
-├── flags.yaml             # Local flags configuration
-├── goff-proxy.yaml        # Relay-proxy polling and retriever settings
-├── README.md              # This file
-├── templates/
-│   └── index.html         # Flask HTML template
-└── static/
-    ├── css/
-    │   └── style.css      # CSS for light/dark and component styles
-    └── js/
-        └── script.js      # JS for theme toggling
+├── .env
+├── app.py              # Flask application using GoFeatureFlagClient
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── flags.yaml          # Feature flags definition
+├── goff-proxy.yaml     # Relay proxy configuration
+└── ...
 ```
 
----
-
-## Prerequisites
-
-* **Docker** and **Docker Compose** installed on your machine.
-* **Python 3.11+** (if you want to run Flask locally without Docker).
-* **Node.js & npm/yarn** (for the React integration).
-
----
-
-## Getting Started
-
-### Clone & Setup
-
-```bash
-git clone https://github.com/your-org/flask-flag-demo.git
-cd flask-flag-demo
-```
-
-### Environment Variables
-
-1. Create a file named `.env` in the project root:
-
-   ```bash
-   ```
-
-touch .env
-
-````
-2. Add the Flask secret key:
-   ```dotenv
-SECRET_KEY=supersecret
-````
-
----
-
-### Flags Configuration
-
-Modify `flags.yaml` to control which features are enabled by default:
-
-```yaml
-dark_mode:
-  defaultValue: false
-promo_banner:
-  defaultValue: true
-new_button:
-  defaultValue: false
-analytics_section:
-  defaultValue: true
-chatbot_enabled:
-  defaultValue: true
-footer_enabled:
-  defaultValue: true
-```
-
-* Each key is a feature flag name.
-* `defaultValue` can be `true` or `false`.
-
----
-
-### Relay-Proxy Configuration
-
-Edit `goff-proxy.yaml` if needed. The default polls every 1000 ms (1 second) and uses `flags.yaml`:
-
-```yaml
-pollingInterval: 1000
-retrievers:
-  - kind: file
-    path: /goff/flags.yaml
-```
-
----
-
-### Docker & Docker Compose
-
-#### Dockerfile (Flask App)
-
-```dockerfile
-FROM python:3.11-slim-bullseye
-WORKDIR /app
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 5000
-CMD ["python", "app.py"]
-```
-
-#### docker-compose.yml
-
-```yaml
-version: '3.8'
-services:
-  gff-server:
-    image: thomaspoignant/go-feature-flag:latest
-    entrypoint: ["go-feature-flag"]
-    command: ["relay-proxy", "--config", "/goff/goff-proxy.yaml"]
-    ports:
-      - "8080:1031"
-    volumes:
-      - ./flags.yaml:/goff/flags.yaml:ro
-      - ./goff-proxy.yaml:/goff/goff-proxy.yaml:ro
-
-  flask-app:
-    build: .
-    ports:
-      - "5001:5000"
-    depends_on:
-      - gff-server
-    environment:
-      GFF_URL: http://gff-server:1031/client/api/v1
-      SECRET_KEY: ${SECRET_KEY}
-    volumes:
-      - .:/app
-```
-
-* The relay proxy listens on container port **1031**, mapped to host **8080**.
-* Flask listens on container port **5000**, mapped to host **5001**.
-
----
-
-### Run the Demo
-
-1. Ensure Docker is running.
-2. In the project root:
-
-   ```bash
-   ```
-
-docker-compose up --build
-
-````
-3. Open `http://localhost:5001` in your browser.
-4. Edit `flags.yaml` to toggle features; the relay proxy polls every second, and the Flask endpoint picks changes on page refresh.
-
----
-
-## Application Overview
-
-- **Flask Server (app.py)**
-  - Fetches feature flags from the relay proxy (`GFF_URL`) via HTTP.
-  - Renders `index.html`, passing a `flags` dictionary and some sample `stats`.
-  - Uses Jinja2 templating to conditionally show/hide sections.
-
-- **Templates & Static Files**
-  - `templates/index.html` includes:
-    - **Promo Banner** if `flags.promo_banner` is `true`
-    - **Header** with Dark/Light toggle
-    - **Features Grid** (always-visible card and `new_button`-driven card)
-    - **Analytics Section** using a small cards layout (controlled by `analytics_section`)
-    - **Chatbot Panel** if `flags.chatbot_enabled` is `true`
-    - **Footer** if `flags.footer_enabled` is `true`
-  - `static/css/style.css` and `static/js/script.js` control look-and-feel and client-side theme toggling.
-
-- **Relay Proxy (GoFeatureFlag)**
-  - Loads `flags.yaml` on startup.
-  - Polls the file every second to detect changes, updating its in-memory flag store.
-  - Exposes a **client-API** at `/client/api/v1/flags` for the Flask app (and any other client) to fetch all active flags.
-
----
-
-## Integrate Flags into React
-
-You can share the same relay-proxy–driven flags in a React (or any JavaScript) frontend.
-
-### Install SDK
-1. In your React project directory:
-   ```bash
-npm install @go-feature-flag/js-client-sdk
-````
-
-or using Yarn:
-
-```bash
-yarn add @go-feature-flag/js-client-sdk
-```
-
----
-
-### Initialize Client
-
-2. In a top-level file (e.g., `src/index.js` or `src/App.js`):
-
-   ```javascript
-   ```
-
-import React, { useEffect, useState } from 'react';
-import { GoFeatureFlag } from '@go-feature-flag/js-client-sdk';
-
-// Relay proxy base URL (notice '/client/api/v1')
-const GFF\_BASE\_URL = '[http://localhost:8080/client/api/v1](http://localhost:8080/client/api/v1)';
-
-const gffClient = GoFeatureFlag({
-baseUrl: GFF\_BASE\_URL,
-environmentId: '',    // not used for file retriever
-pollingInterval: 15000 // milliseconds (15s)
-});
-
-function App() {
-const \[flags, setFlags] = useState({});
-
-useEffect(() => {
-gffClient
-.on('ready', (fetchedFlags) => {
-setFlags(fetchedFlags);
-})
-.on('update', (updatedFlags) => {
-setFlags(updatedFlags);
-});
-
-```
-return () => {
-  gffClient.close();
-};
-```
-
-}, \[]);
-
-if (!flags.promo\_banner) {
-return <div>Loading...</div>;
-}
-
-return (
-\<div className={flags.dark\_mode ? 'dark-theme' : 'light-theme'}>
-{flags.promo\_banner && <div className="promo">🔥 New Features Available!</div>} <header> <h1>React Dashboard</h1> </header> <main> <section className="features-grid"> <div className="card">Always Available</div>
-{flags.new\_button && <div className="card new">New Feature</div>} </section>
-{flags.analytics\_section && ( <section className="analytics"> <h2>Analytics Overview</h2>
-{/\* ...render your analytics cards... \*/} </section>
-)}
-{flags.chatbot\_enabled && ( <section className="chatbot-panel"> <h2>Chatbot</h2> <div id="chatbox">Ask me anything!</div> </section>
-)} </main>
-{flags.footer\_enabled && <footer>© 2025 Demo Corp</footer>} </div>
-);
-}
-
-export default App;
-
-````
-- `GoFeatureFlag({ baseUrl, pollingInterval })` creates a client.
-- `on('ready')` is called on initial fetch.
-- `on('update')` fires when flags change.
-- The client caches flags and polls every `pollingInterval` ms.
-
----
-
-### Use Flags in Components
-3. Anywhere in your React components, read flags from state (or context):
-   ```jsx
-   if (flags.dark_mode) {
-     // apply dark theme class
-   }
-````
-
----
-
-### Polling & Cache Behavior
-
-* The JS SDK contacts the relay proxy at:
-
-  * **Startup** (initial fetch)
-  * **Every pollingInterval** (e.g., 15s)
-* After editing `flags.yaml`, the relay proxy picks up changes within 1s; the JS client sees updates on its next poll.
-
----
-
-## Advanced Topics
-
-### Production Deployment
-
-* Build Docker images for both:
-
-  * **Relay Proxy** (use `thomaspoignant/go-feature-flag:latest`)
-  * **Flask App** (custom image built from `Dockerfile`)
-* Deploy behind a load balancer or Kubernetes:
-
-  1. Relay-proxy: reads from a remote store (GitHub, S3, etc.)
-  2. Flask and/or React frontend: Nginx serving static React files, and Flask API container.
-* Use environment-specific flags by switching retriever configs.
-
-### Custom Retriever (HTTP, GitHub, etc.)
-
-* For remote YAML on GitHub:
+* The `docker-compose.yml` file should define two services:
+
+  * **gff-server**: the relay proxy container.
+  * **flask-app**: the main application container.
+* The relay proxy can be started with:
 
   ```yaml
-  retrievers:
-    - kind: http
-      url: https://raw.githubusercontent.com/your-org/your-repo/main/flags.yaml
-  pollingInterval: 5000
+  entrypoint: ["go-feature-flag"]
+  command: ["relay-proxy", "--config", "/goff/goff-proxy.yaml"]
   ```
 
 ---
 
-## Cleaning Up
+## Operational Behavior Summary
 
-To stop and remove containers, networks, and volumes:
-
-```bash
-docker-compose down --volumes --remove-orphans
-```
+* The application starts with a local in-memory cache of flags, fetched from the relay proxy.
+* During runtime, all flag checks are handled via this local cache, resulting in fast reads with zero network latency.
+* Background threads on both the relay and the SDK ensure that flag updates are reflected without restarting any services.
+* This architecture allows for scalable, real-time flag updates with minimal overhead.
 
 ---
 
-## License
+## Important
 
-MIT License. See [LICENSE](LICENSE) for details.
+* Two containers are essential in production: the application and the relay proxy.
+* The relay proxy reads and manages the flags, while the application focuses on consuming them.
+* The Python SDK is optimized to minimize traffic, enhance performance, and handle updates automatically.
+
+This setup ensures a reliable, scalable, and efficient way to manage feature flags in production environments.
+
+```
