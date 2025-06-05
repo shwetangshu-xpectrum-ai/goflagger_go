@@ -1,332 +1,245 @@
-# Feature Flag Management System
+# Docker Containerization Guide
 
-A powerful and user-friendly feature flag management system built with Go, allowing you to control feature rollouts and A/B testing through a web interface. This system provides a complete solution for managing feature flags, user targeting, and feature rollouts in your applications.
+## Table of Contents
+1. [Introduction to Docker](#introduction-to-docker)
+2. [Docker Basics](#docker-basics)
+3. [Dockerfile Creation](#dockerfile-creation)
+4. [Docker Commands](#docker-commands)
+5. [Docker Compose](#docker-compose)
+6. [AWS Deployment](#aws-deployment)
+7. [Best Practices](#best-practices)
 
-## 📋 Table of Contents
+## Introduction to Docker
 
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Getting Started](#-getting-started)
-- [Detailed Usage Guide](#-detailed-usage-guide)
-- [API Reference](#-api-reference)
-- [Configuration Guide](#-configuration-guide)
-- [Technical Details](#-technical-details)
-- [Security](#-security)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
+Docker is a platform for developing, shipping, and running applications in containers. Containers are lightweight, portable, and self-contained units that can run anywhere Docker is installed.
 
-## 🌟 Features
+### Why Docker?
+- **Consistency**: Ensures applications run the same way across different environments
+- **Isolation**: Each container runs in isolation with its own resources
+- **Portability**: Easy to move applications between different environments
+- **Scalability**: Simple to scale applications up or down
+- **Version Control**: Easy to track and manage different versions of your application
 
-### Core Features
-
-| Feature | Description | Benefits |
-|---------|-------------|----------|
-| Web Admin Interface | Browser-based management console | Easy access, no CLI required |
-| Real-time Updates | 3-second polling interval | Immediate feedback |
-| User Targeting | Rule-based feature access | Granular control |
-| Feature Variations | Multiple states per feature | Flexible configuration |
-
-### Feature Flag Management
-
-- **Global Controls**
-  - Enable/disable features system-wide
-  - Set default states
-  - Configure fallback behaviors
-
-- **Targeting Rules**
-  - Key-value based targeting
-  - Multiple rules per feature
-  - Rule priority management
-  - Custom rule conditions
-
-- **Monitoring**
-  - Real-time status updates
-  - Visual status indicators
-  - Change history tracking
-  - Usage statistics
-
-## 🏗️ Architecture
-
-### System Components
-
-```mermaid
-graph TD
-    A[Web Interface] --> B[Go Server]
-    B --> C[Feature Flag Engine]
-    C --> D[YAML Configuration]
-    B --> E[HTML Templates]
-    B --> F[Static Assets]
-```
-
-### Directory Structure
-
-```
-flagger/
-├── main.go              # Main application entry point
-├── flags.yaml          # Feature flag configurations
-├── go.mod              # Go module definition
-├── go.sum              # Go module checksums
-├── static/             # Static assets
-│   └── css/
-│       └── style.css   # Stylesheet
-└── templates/          # HTML templates
-    ├── dashboard.html  # Dashboard template
-    └── admin.html      # Admin panel template
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-| Requirement | Version | Purpose |
-|-------------|---------|---------|
-| Go | ≥ 1.16 | Runtime and compilation |
-| Git | Latest | Version control |
-| Web Browser | Modern | Admin interface access |
+## Docker Basics
 
 ### Installation
+```bash
+# For Ubuntu
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io
 
-1. **Clone the Repository**
-   ```bash
-   git clone <repository-url>
-   cd flagger
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   go mod tidy
-   ```
-
-3. **Verify Installation**
-   ```bash
-   go run main.go
-   ```
-
-4. **Access the Application**
-   - Dashboard: http://localhost:8080/dashboard
-   - Admin Panel: http://localhost:8080/admin
-
-## 📋 Detailed Usage Guide
-
-### Dashboard Interface
-
-#### Quick Toggle Links
-
-| Button | Action | Effect |
-|--------|--------|--------|
-| Enable All | Sets all features to enabled | Global enable |
-| Disable All | Sets all features to disabled | Global disable |
-| Reset | Returns to default state | Reset to defaults |
-
-#### Feature Status Display
-
-```html
-<div class="status-indicator {{if .Feature}}active{{else}}inactive{{end}}">
-    <span class="status-label">Feature Name:</span>
-    <span class="status-value">{{if .Feature}}Enabled{{else}}Disabled{{end}}</span>
-</div>
+# For macOS
+brew install docker
 ```
 
-### Admin Panel
+### Basic Docker Concepts
+- **Image**: A template for creating containers
+- **Container**: A running instance of an image
+- **Registry**: A repository for Docker images (e.g., Docker Hub)
+- **Dockerfile**: A text file with instructions to build an image
 
-#### Feature Management
+## Dockerfile Creation
 
-1. **Default Variation Setting**
-   ```yaml
-   feature-name:
-     defaultRule:
-       variation: enabled  # or disabled
-   ```
+Here's an example Dockerfile for a Go application:
 
-2. **Targeting Rule Configuration**
-   ```yaml
-   targeting:
-     - query: "user.role == 'admin'"
-       variation: enabled
-     - query: "user.plan == 'premium'"
-       variation: enabled
-   ```
+```dockerfile
+# Use official Go runtime as base image
+FROM golang:1.21-alpine
 
-#### Rule Management
+# Set working directory
+WORKDIR /app
 
-| Operation | Method | Example |
-|-----------|--------|---------|
-| Add Rule | UI Button | Click "Add Rule" |
-| Remove Rule | UI Button | Click "×" |
-| Edit Rule | Direct Edit | Modify input fields |
-| Reorder Rules | Drag & Drop | Move rules up/down |
+# Copy go mod and sum files
+COPY go.mod go.sum ./
 
-## 🔧 Configuration Guide
+# Download dependencies
+RUN go mod download
 
-### Feature Flag Structure
+# Copy source code
+COPY . .
+
+# Build the application
+RUN go build -o main .
+
+# Expose port
+EXPOSE 8080
+
+# Run the application
+CMD ["./main"]
+```
+
+## Docker Commands
+
+### Basic Commands
+```bash
+# Build an image
+docker build -t myapp:1.0 .
+
+# Run a container
+docker run -p 8080:8080 myapp:1.0
+
+# List running containers
+docker ps
+
+# Stop a container
+docker stop <container_id>
+
+# Remove a container
+docker rm <container_id>
+
+# List images
+docker images
+
+# Remove an image
+docker rmi <image_id>
+```
+
+## Docker Compose
+
+Docker Compose is a tool for defining and running multi-container applications. Here's an example `docker-compose.yml`:
 
 ```yaml
-feature-name:
-  variations:
-    enabled: true
-    disabled: false
-  targeting:
-    - query: "key == 'value'"
-      variation: enabled
-  defaultRule:
-    variation: disabled
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
 ```
 
-### Configuration Parameters
+## AWS Deployment
 
-| Parameter | Type | Description | Required |
-|-----------|------|-------------|----------|
-| variations | Object | Feature states | Yes |
-| targeting | Array | Targeting rules | No |
-| defaultRule | Object | Default state | Yes |
+### 1. Install AWS CLI and Configure
+```bash
+# Install AWS CLI
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+sudo installer -pkg AWSCLIV2.pkg -target /
 
-### Targeting Rule Syntax
+# Configure AWS CLI
+aws configure
+```
 
-| Operator | Example | Description |
-|----------|---------|-------------|
-| == | `key == "value"` | Exact match |
-| != | `key != "value"` | Not equal |
-| > | `count > 5` | Greater than |
-| < | `count < 5` | Less than |
-| >= | `count >= 5` | Greater or equal |
-| <= | `count <= 5` | Less or equal |
+### 2. Create an ECR Repository
+```bash
+# Create repository
+aws ecr create-repository --repository-name myapp
 
-## 🛠️ Technical Details
+# Login to ECR
+aws ecr get-login-password --region region | docker login --username AWS --password-stdin account.dkr.ecr.region.amazonaws.com
+```
 
-### Dependencies
+### 3. Build and Push Docker Image
+```bash
+# Build image
+docker build -t myapp:1.0 .
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| go-feature-flag | Latest | Flag management |
-| yaml.v2 | v2.4.0 | YAML parsing |
-| html/template | Built-in | Template rendering |
+# Tag image
+docker tag myapp:1.0 account.dkr.ecr.region.amazonaws.com/myapp:1.0
 
-### Code Structure
+# Push image
+docker push account.dkr.ecr.region.amazonaws.com/myapp:1.0
+```
 
-```go
-// Main application structure
-type FeatureFlag struct {
-    Variations struct {
-        Enabled  bool `yaml:"enabled"`
-        Disabled bool `yaml:"disabled"`
-    } `yaml:"variations"`
-    Targeting []struct {
-        Query     string `yaml:"query"`
-        Variation string `yaml:"variation"`
-    } `yaml:"targeting"`
-    DefaultRule struct {
-        Variation string `yaml:"variation"`
-    } `yaml:"defaultRule"`
+### 4. Deploy to EC2
+```bash
+# Create EC2 instance
+aws ec2 run-instances \
+    --image-id ami-0c55b159cbfafe1f0 \
+    --instance-type t2.micro \
+    --key-name my-key-pair \
+    --security-group-ids sg-xxxxxxxx
+
+# Install Docker on EC2
+sudo yum update -y
+sudo yum install -y docker
+sudo service docker start
+sudo usermod -a -G docker ec2-user
+```
+
+### 5. Deploy to ECS (Elastic Container Service)
+```yaml
+# task-definition.json
+{
+    "family": "myapp",
+    "containerDefinitions": [
+        {
+            "name": "myapp",
+            "image": "account.dkr.ecr.region.amazonaws.com/myapp:1.0",
+            "cpu": 256,
+            "memory": 512,
+            "portMappings": [
+                {
+                    "containerPort": 8080,
+                    "hostPort": 8080
+                }
+            ]
+        }
+    ]
 }
 ```
 
-### API Endpoints
+## Best Practices
 
-| Endpoint | Method | Purpose | Parameters |
-|----------|--------|---------|------------|
-| /dashboard | GET | View dashboard | user_id (optional) |
-| /admin | GET | Admin panel | None |
-| /admin/update | POST | Update flags | Form data |
+1. **Use Multi-stage Builds**
+```dockerfile
+# Build stage
+FROM golang:1.21-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN go build -o main .
 
-## 🔒 Security
+# Final stage
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/main .
+CMD ["./main"]
+```
 
-### Security Measures
+2. **Security Best Practices**
+- Use non-root users
+- Scan images for vulnerabilities
+- Keep base images updated
+- Use specific version tags
+- Implement resource limits
 
-| Measure | Implementation | Purpose |
-|---------|---------------|---------|
-| Input Validation | Server-side checks | Prevent injection |
-| File Operations | Safe file handling | Prevent corruption |
-| Error Handling | Proper error management | Secure operation |
+3. **Performance Optimization**
+- Use .dockerignore
+- Leverage build cache
+- Minimize layers
+- Use appropriate base images
 
-### Best Practices
+4. **Monitoring and Logging**
+```bash
+# View container logs
+docker logs <container_id>
 
-1. **Configuration Security**
-   ```yaml
-   # Secure configuration example
-   feature-name:
-     variations:
-       enabled: true
-       disabled: false
-     targeting:
-       - query: "user.role == 'admin'"  # Use proper validation
-         variation: enabled
-   ```
+# Monitor container stats
+docker stats
 
-2. **Error Handling**
-   ```go
-   if err := yaml.Unmarshal(data, &config); err != nil {
-       log.Printf("Error parsing flags.yaml: %v", err)
-       http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-       return
-   }
-   ```
+# Set up logging driver
+docker run --log-driver=json-file --log-opt max-size=10m myapp:1.0
+```
 
-## 🔍 Troubleshooting
+## Additional Resources
 
-### Common Issues
-
-| Issue | Solution | Prevention |
-|-------|----------|------------|
-| Flag not updating | Check polling interval | Monitor logs |
-| Rule not working | Verify syntax | Use validator |
-| UI not responding | Clear cache | Regular maintenance |
-
-### Debugging
-
-1. **Enable Debug Logging**
-   ```go
-   log.SetLevel(log.DebugLevel)
-   ```
-
-2. **Check Configuration**
-   ```bash
-   cat flags.yaml
-   ```
-
-3. **Monitor Server Logs**
-   ```bash
-   tail -f server.log
-   ```
-
-## 🤝 Contributing
-
-### Development Setup
-
-1. **Fork the Repository**
-   ```bash
-   git fork <repository-url>
-   ```
-
-2. **Create Feature Branch**
-   ```bash
-   git checkout -b feature/your-feature
-   ```
-
-3. **Submit Pull Request**
-   ```bash
-   git push origin feature/your-feature
-   ```
-
-### Code Standards
-
-| Standard | Description | Tools |
-|----------|-------------|-------|
-| Formatting | gofmt | Built-in |
-| Linting | golint | External |
-| Testing | go test | Built-in |
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support
-
-For support:
-1. Check the [documentation](#-detailed-usage-guide)
-2. Search [existing issues](issues)
-3. Create a new issue if needed
-
----
-
-Made with ❤️ by [Your Name/Organization] 
+- [Docker Official Documentation](https://docs.docker.com/)
+- [AWS Container Services](https://aws.amazon.com/containers/)
+- [Docker Hub](https://hub.docker.com/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/) 

@@ -11,4 +11,4 @@ experimental-feature:
     disabled: false
   targeting: []
   defaultRule:
-    variation: disabled
+    variation: enabled

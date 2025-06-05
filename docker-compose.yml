@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - GOFF_HOST=goff:1031
+    depends_on:
+      - goff
+    volumes:
+      - ./flags.yaml:/app/flags.yaml
+
+  goff:
+    image: thomaspoignant/go-feature-flag:latest
+    ports:
+      - "1031:1031"
+    volumes:
+      - ./flags.yaml:/goff/flags.yaml
+    command: ["/go-feature-flag", "start", "--config-file=/goff/flags.yaml"] 
